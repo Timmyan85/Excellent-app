@@ -9,7 +9,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
   --bg:#F2F1EC;--sf:#FFFFFF;--s2:#F0EFEA;--bd:rgba(0,0,0,.10);--bd2:rgba(0,0,0,.18);
-  --tx:#1A1A18;--t2:#4A4A46;--t3:#8A8A86;
+  --tx:#1A1A18;--t2:#4A4A46;  --t3:#636360;
   --br:#1D5FA8;--bl:#EAF2FC;--bm:#4A84C8;
   --gn:#186B3E;--gl:#E6F5ED;--am:#7A4E00;--al:#FDF4E0;
   --rd:#9B2424;--rl:#FDEAEA;--tl:#E0F4F0;--tt:#145F54;
@@ -966,7 +966,7 @@ function gdHandleCallback(){
 async function gdGetUserInfo(){try{const r=await fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:'Bearer '+gdToken}});if(r.ok){const d=await r.json();gdUserEmail=d.email||'';gdSaveState();}}catch(e){}}
 async function gdApiCall(url,opts={}){const headers={'Authorization':'Bearer '+gdToken,...(opts.headers||{})};const r=await fetch(url,{...opts,headers});if(r.status===401){gdToken=null;gdSaveState();rGdUI();throw new Error('Token hết hạn');}return r;}
 async function gdFindFile(){const r=await gdApiCall(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${GD_FILE}'&fields=files(id,name)`);if(r.ok){const d=await r.json();gdFileId=d.files&&d.files.length?d.files[0].id:null;gdSaveState();}}
-async function gdSyncNow(){if(!gdIsConnected()||gdSyncing)return;gdSyncing=true;rGdUI();try{if(!gdFileId)await gdFindFile();const body=JSON.stringify(db);if(gdFileId){await gdApiCall(`https://www.googleapis.com/upload/drive/v3/files/${gdFileId}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body});}else{const meta={name:GD_FILE,parents:['appDataFolder']};const form=new FormData();form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));form.append('file',new Blob([body],{type:'application/json'}));const r2=await gdApiCall('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',body:form});if(r2.ok){const d=await r2.json();gdFileId=d.id;}}gdLastSync=new Date();gdSaveState();const ts=fmtTime(gdLastSync);if($('desk-sync'))$('desk-sync').textContent='📂 Drive ✓ '+ts;toast('📂 Đồng bộ Drive lúc '+ts,'ok');}catch(err){toast('❌ Drive: '+err.message,'err',4000);}gdSyncing=false;rGdUI();}
+async function gdSyncNow(){if(!gdIsConnected()||gdSyncing)return;clearTimeout(_gdTimer);gdSyncing=true;rGdUI();try{if(!gdFileId)await gdFindFile();const body=JSON.stringify(db);if(gdFileId){await gdApiCall(`https://www.googleapis.com/upload/drive/v3/files/${gdFileId}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body});}else{const meta={name:GD_FILE,parents:['appDataFolder']};const form=new FormData();form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));form.append('file',new Blob([body],{type:'application/json'}));const r2=await gdApiCall('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',body:form});if(r2.ok){const d=await r2.json();gdFileId=d.id;}}gdLastSync=new Date();gdSaveState();const ts=fmtTime(gdLastSync);if($('desk-sync'))$('desk-sync').textContent='📂 Drive ✓ '+ts;toast('📂 Đồng bộ Drive lúc '+ts,'ok');}catch(err){toast('❌ Drive: '+err.message,'err',4000);}gdSyncing=false;rGdUI();}
 async function gdLoadFromDrive(){if(!gdIsConnected())return;try{if(!gdFileId)await gdFindFile();if(!gdFileId){toast('⚠️ Chưa có dữ liệu trên Drive','warn');return;}const r=await gdApiCall(`https://www.googleapis.com/drive/v3/files/${gdFileId}?alt=media`);if(r.ok){const remote=await r.json();db={...remote,todayDate:db.todayDate,today:db.today};if(!db.subLists)db.subLists={};if(!db.history)db.history={};save();toast('📂 Đã tải từ Drive','ok',4000);rHome();}}catch(err){toast('❌ Tải Drive: '+err.message,'err');}}
 function rGdUI(){const acts=$('gd-actions'),meta=$('gd-meta'),status=$('gd-status'),info=$('gd-info');if(!acts)return;if(gdSyncing){if(status)status.textContent='⏳ Đang đồng bộ...';acts.innerHTML='<div style="padding:8px 0;font-size:13px;font-weight:600;color:var(--am)"><span class="spin">⏳</span> Đang đồng bộ...</div>';return;}if(gdIsConnected()){const ts=gdLastSync?fmtTime(gdLastSync):'Chưa đồng bộ';if(status)status.innerHTML='<span style="color:var(--gn);font-weight:700">✅ Đã kết nối'+(gdUserEmail?' · '+gdUserEmail:'')+'</span>';if(info)info.className='ib ok',info.textContent='✅ Tự động sao lưu sau mỗi thay đổi.';acts.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="bp" style="flex:1;padding:12px;font-size:13px" onclick="gdSyncNow()">🔄 Đồng bộ ngay</button><button class="bo" style="padding:12px;font-size:13px" onclick="gdLoadFromDrive()">⬇️ Tải về</button><button class="bo brd" style="padding:12px;font-size:13px" onclick="gdLogout()">Ngắt</button></div>`;if(meta)meta.textContent='Lần cuối: '+ts;}else{if(status)status.textContent='Chưa kết nối';if(info)info.className='ib',info.textContent='📲 Kết nối Google Drive để sao lưu tự động mọi thiết bị.';acts.innerHTML=`<button class="bp" onclick="om('m-gdrive')" style="padding:12px;font-size:13px">📂 Kết nối Google Drive ngay</button>`;if(meta)meta.textContent='';}rStoUI();}
 function fmtTime(d){if(!d)return'—';const dt=d instanceof Date?d:new Date(d);return dt.getHours()+':'+String(dt.getMinutes()).padStart(2,'0');}
@@ -975,7 +975,7 @@ function fmtTime(d){if(!d)return'—';const dt=d instanceof Date?d:new Date(d);r
 let db={people:[],subLists:{},today:{ll:[],hen:[],ban:[]},review:{},reviewHistory:{},formd:{},todayDate:'',comments:[],calEvents:{},fixedGuests:{},fixedEvents:null,streak:0,weekData:{},history:{},advName:'',advPhone:'',advDirectName:'',advDirectPhone:'',advPlatinumName:'',advPlatinumPhone:'',sampleMode:false,sampleUsed:false,userName:'',userId:'',userPhone:'',goal2026:'',goal2027:'',goal2028:''};
 const toISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const todISO=()=>toISO(new Date());
-const td=()=>{const d=new Date();return d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();};
+const td=()=>{const d=new Date();return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
 const tfull=()=>{const D=['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];const d=new Date();return D[d.getDay()]+', ngày '+d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();};
 const ini=n=>{if(!n)return'?';const p=n.trim().split(' ');return(p.length>1?p[0][0]+p[p.length-1][0]:n.slice(0,2)).toUpperCase();};
 const gH=t=>parseInt((t||'08').split(':')[0]);
@@ -984,7 +984,10 @@ const DOW=d=>d.getDay()===0?7:d.getDay();
 const vndFromISO=s=>{if(!s)return'';const[y,m,dv]=s.split('-');return dv+'/'+m+'/'+y;};
 const getFE=()=>db.fixedEvents||DEF_FE;
 const mkFD=()=>({dob:'',mxh:'',sp:{},vp:'',vpNote:'',tc:[],hn:[],b1:'',b2:'',tgd:'',ttgd:'',hm:'',pl:[],fid:'',pw:'',ngn:'',diary:[]});
-let _lastSaveTime=null;
+let _lastSaveTime=null,_saveTimer=null,_gdTimer=null,_gdSyncDebounce=null;
+const IMG_MAX_KB=300;
+const LS_WARN_KB=4000;
+const LS_BLOCK_KB=4800;
 
 /* TOAST */
 const toast=(m,type='',d=3000)=>{const t=$('toast');t.textContent=m;t.className='on'+(type?' '+type:'');clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('on'),d);};
@@ -1001,7 +1004,67 @@ function rStoUI(){
 }
 
 /* SAVE/LOAD */
-function save(){try{localStorage.setItem(_K,JSON.stringify(db));_lastSaveTime=new Date();const ts=fmtTime(_lastSaveTime);if($('desk-sync'))$('desk-sync').textContent=(gdIsConnected()?'📂 ':'💾 ')+'Lưu '+ts;rStoUI();if(gdIsConnected()){clearTimeout(save._t);save._t=setTimeout(gdSyncNow,12000);}return true;}catch(e){toast('⚠️ Không lưu được!','err',5000);return false;}}
+/* #1 FIX — Kiểm tra quota TRƯỚC khi ghi, chặn ảnh vượt ngưỡng */
+function estimatePayloadKB(payload){return payload.length/1024;}
+function countImgKB(payload){
+  // Chỉ tính phần base64 ảnh (data:image/...)
+  const matches=payload.match(/data:image\/[^;]+;base64,[^"']*/g)||[];
+  return matches.reduce((s,m)=>s+m.length/1024,0);
+}
+function save(){
+  try{
+    const payload=JSON.stringify(db);
+    const kb=estimatePayloadKB(payload);
+    const imgKb=countImgKB(payload);
+    // Chặn cứng nếu vượt ngưỡng block
+    if(kb>LS_BLOCK_KB){
+      toast(`❌ Không lưu được! Dữ liệu quá nặng (${kb.toFixed(0)} KB). Xoá ảnh cũ hoặc xuất sao lưu ngay!`,'err',8000);
+      return false;
+    }
+    // Cảnh báo sớm khi gần đầy
+    if(kb>LS_WARN_KB){
+      toast(`⚠️ Dữ liệu gần đầy (${kb.toFixed(0)} KB). Ảnh chiếm ${imgKb.toFixed(0)} KB — nên xoá bớt.`,'warn',6000);
+    }
+    localStorage.setItem(_K,payload);
+    _lastSaveTime=new Date();const ts=fmtTime(_lastSaveTime);
+    if($('desk-sync'))$('desk-sync').textContent=(gdIsConnected()?'📂 ':'💾 ')+'Lưu '+ts;
+    rStoUI();
+    // #2 FIX — debounce Drive sync, chống race condition
+    if(gdIsConnected()) scheduleDriveSync();
+    return true;
+  }catch(e){
+    if(e.name==='QuotaExceededError')toast('❌ Bộ nhớ đầy! Hãy xoá ảnh hoặc xuất sao lưu ngay.','err',8000);
+    else toast('⚠️ Không lưu được: '+e.message,'err',5000);
+    return false;
+  }
+}
+
+/* #1 FIX — Chặn ảnh quá nặng TRƯỚC khi đưa vào buffer */
+function checkImgSize(dataUrl,filename){
+  const kb=dataUrl.length/1024;
+  if(kb>IMG_MAX_KB){
+    toast(`⚠️ Ảnh "${filename||''}" quá nặng (${kb.toFixed(0)} KB > ${IMG_MAX_KB} KB). Hãy chọn ảnh nhỏ hơn.`,'warn',5000);
+    return false;
+  }
+  return true;
+}
+
+/* #2 FIX — Debounced Drive sync với isSyncing guard, tránh race condition */
+let _isSyncQueued=false;
+function scheduleDriveSync(){
+  if(_isSyncQueued)return; // Đã có request chờ, không stack thêm
+  _isSyncQueued=true;
+  clearTimeout(_gdSyncDebounce);
+  _gdSyncDebounce=setTimeout(async()=>{
+    _isSyncQueued=false;
+    if(gdSyncing){
+      // Drive đang sync → schedule lại sau khi xong
+      setTimeout(scheduleDriveSync,5000);
+      return;
+    }
+    await gdSyncNow();
+  },8000); // 8s debounce: gom nhiều thao tác liên tiếp thành 1 lần sync
+}
 function load(){try{const s=localStorage.getItem(_K);if(s)db={...db,...JSON.parse(s)};if(!db.history)db.history={};if(!db.reviewHistory)db.reviewHistory={};if(!db.subLists)db.subLists={};const today=td();if(db.todayDate&&db.todayDate!==today){db.weekData=db.weekData||{};const iso=dateFromVND(db.todayDate);if(iso){db.weekData[iso]={ll:(db.today?.ll||[]).length,hen:(db.today?.hen||[]).length,ban:(db.today?.ban||[]).length};}db.history[db.todayDate]={ll:[...(db.today?.ll||[])],hen:[...(db.today?.hen||[])],ban:[...(db.today?.ban||[])]};if(db.review&&(db.review.g||db.review.p))db.reviewHistory[db.todayDate]={...db.review};const hkeys=Object.keys(db.history).sort((a,b)=>a>b?1:-1);while(hkeys.length>60){delete db.history[hkeys.shift()];}db.streak=((db.today?.ll||[]).length>=10)?(db.streak||0)+1:0;db.todayDate=today;db.today={ll:[],hen:[],ban:[]};save();}if(!db.todayDate){db.todayDate=today;save();}_lastSaveTime=new Date();}catch(e){console.warn(e);}}
 function dateFromVND(s){if(!s)return null;const p=s.split('/');if(p.length!==3)return null;return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');}
 function testSt(){try{const k='_t'+Date.now();localStorage.setItem(k,'ok');localStorage.removeItem(k);rStoUI();const kb=(JSON.stringify(db).length/1024).toFixed(1);toast('✅ Bộ nhớ tốt · '+kb+' KB','ok');}catch(e){toast('❌ Lỗi: '+e.message,'err',3000);}}
@@ -1066,9 +1129,9 @@ function drawChart(){
 }
 
 /* LIST */
+let _prevScreen='s-list',_prevNavIdx=1;
 let navStack=[{type:'root',label:'DS chính'}];
 let curP=null,lTab='all',aType='ll',eIdx=-1,calOff=0,calMode='week',rvMode='today',vFeIdx=-1;
-let vFid=null,vFdate=null,vCalKey=null,vCalIdx=-1,diImgBuf=[],_savingToSub=null;
 let hfType='all',hfKq='all',hfQ='',hfDate='';
 const depthColor=d=>['var(--br)','var(--pp)','var(--gn)','var(--am)'][Math.min(d,3)];
 const depthCls=d=>'d'+Math.min(d,3);
@@ -1078,7 +1141,7 @@ function allPeople(){const all=[...db.people];Object.values(db.subLists||{}).for
 function rListBreadcrumb(){const ctx=navStack[navStack.length-1];$('list-title').textContent=ctx.type==='root'?'👥 Danh sách':('👥 DS con: '+ctx.label);const wrap=$('list-bc-wrap');if(navStack.length<=1){wrap.innerHTML='';return;}wrap.innerHTML='<div class="bc">'+navStack.map((n,i)=>{const isLast=i===navStack.length-1;const lbl=i===0?'DS chính':n.label;return(i>0?'<span class="bc-sep">›</span>':'')+`<span class="bc-item${isLast?' current':''}" onclick="${isLast?'':('navTo('+i+')')}">${lbl}</span>`;}).join('')+'</div>';}
 function navTo(idx){navStack=navStack.slice(0,idx+1);lTab='all';rListBreadcrumb();rl();}
 function openSubList(){if(!curP)return;const p=findPerson(curP);if(!p)return;const depth=curDepth();if(depth>=MAX_DEPTH-1){toast('⚠️ Đã đạt giới hạn 4 tầng','warn',3000);return;}navStack.push({type:'sub',parentId:curP,label:p.name,depth:depth+1});lTab='all';go('s-list',1);}
-function rl(){const q=($('ls')||{value:''}).value.toLowerCase();const list=curPeopleList();let p=list.filter(x=>x.name.toLowerCase().includes(q)||(x.phone||'').includes(q));if(lTab!=='all')p=p.filter(x=>x.status===lTab);const el=$('lb'),depth=curDepth();if(!p.length){el.innerHTML='<div style="text-align:center;padding:36px;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px">🔍</div><p style="font-size:var(--fs-sm);font-weight:600">Chưa có ai trong danh sách</p></div>';return;}el.innerHTML=p.map(x=>{const subCount=(db.subLists[x.id]||[]).length;const stripe=`<div class="depth-stripe ${depthCls(depth)}" style="background:${depthColor(depth)};min-height:42px"></div>`;const avBg=['var(--bl)','var(--pl)','var(--gl)','var(--al)'][Math.min(depth,3)];return`<div class="card crd-tap" style="padding:12px 12px 12px 10px;margin-bottom:8px" onclick="openFD('${x.id}')"><div style="display:flex;align-items:center;gap:10px">${stripe}<div class="av" style="background:${avBg};color:${depthColor(depth)}">${ini(x.name)}</div><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px"><div style="min-width:0"><div style="font-size:var(--fs-base);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.name}</div><div style="font-size:12px;color:var(--t3);font-weight:500;margin-top:1px">${x.rel||''}${x.job?' · '+x.job:''}</div>${x.need?`<div style="font-size:12px;color:var(--t2);margin-top:2px">📌 ${x.need}</div>`:''} ${subCount?`<div style="margin-top:4px"><span style="background:var(--pl);color:var(--pp);font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700">👥 ${subCount} DS con</span></div>`:''}</div><span class="bge bge-${x.status||'chua'}" style="flex-shrink:0;margin-top:2px">${SM[x.status||'chua']}</span></div></div></div></div>`;}).join('');}
+function rl(){const q=($('ls')||{value:''}).value.toLowerCase();const list=curPeopleList();let p=list.filter(x=>x.name.toLowerCase().includes(q)||(x.phone||'').includes(q));if(lTab!=='all')p=p.filter(x=>x.status===lTab);const el=$('lb'),depth=curDepth();if(!p.length){el.innerHTML='<div style="text-align:center;padding:36px;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px">🔍</div><p style="font-size:var(--fs-sm);font-weight:600">Chưa có ai trong danh sách</p></div>';return;}el.innerHTML=p.map(x=>{const subCount=(db.subLists[x.id]||[]).length;const stripe=`<div class="depth-stripe ${depthCls(depth)}" style="background:${depthColor(depth)};min-height:42px"></div>`;const avBg=['var(--bl)','var(--pl)','var(--gl)','var(--al)'][Math.min(depth,3)];return`<div class="card crd-tap" style="padding:12px 12px 12px 10px;margin-bottom:8px" onclick="openFD('${x.id}','s-list',1)"><div style="display:flex;align-items:center;gap:10px">${stripe}<div class="av" style="background:${avBg};color:${depthColor(depth)}">${ini(x.name)}</div><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px"><div style="min-width:0"><div style="font-size:var(--fs-base);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.name}</div><div style="font-size:12px;color:var(--t3);font-weight:500;margin-top:1px">${x.rel||''}${x.job?' · '+x.job:''}</div>${x.need?`<div style="font-size:12px;color:var(--t2);margin-top:2px">📌 ${x.need}</div>`:''} ${subCount?`<div style="margin-top:4px"><span style="background:var(--pl);color:var(--pp);font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700">👥 ${subCount} DS con</span></div>`:''}</div><span class="bge bge-${x.status||'chua'}" style="flex-shrink:0;margin-top:2px">${SM[x.status||'chua']}</span></div></div></div></div>`;}).join('');}
 function setT(el,tab){lTab=tab;document.querySelectorAll('#list-tabs .tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');rl();}
 function findPerson(id){let p=db.people.find(x=>x.id===id);if(p)return p;for(const subs of Object.values(db.subLists||{})){p=(subs||[]).find(x=>x.id===id);if(p)return p;}return null;}
 function findPersonParent(id){if(db.people.find(x=>x.id===id))return null;for(const[pid,subs]of Object.entries(db.subLists||{})){if((subs||[]).find(x=>x.id===id))return pid;}return null;}
@@ -1087,7 +1150,8 @@ function savePerson(){const name=$('ap-name').value.trim();if(!name){toast('⚠�
 function delPerson(){if(!confirm('Xoá người này?\nKhông thể hoàn tác.'))return;if(_savingToSub){db.subLists[_savingToSub]=(db.subLists[_savingToSub]||[]).filter(x=>x.id!==curP);}else{const parentId=findPersonParent(curP);if(parentId)db.subLists[parentId]=(db.subLists[parentId]||[]).filter(x=>x.id!==curP);else{db.people=db.people.filter(x=>x.id!==curP);delete db.formd[curP];}}if(save()){toast('🗑 Đã xoá');go('s-list',1);}}
 
 /* FORM CHI TIẾT */
-function openFD(id){curP=id;const p=findPerson(id);if(!p){toast('⚠️ Không tìm thấy','warn');return;}if(!db.formd[id])db.formd[id]=mkFD();const fd=db.formd[id];if(Array.isArray(fd.sp)){const o={};fd.sp.forEach(v=>o[v]='');fd.sp=o;}if(!fd.sp||typeof fd.sp!=='object')fd.sp={};if(!Array.isArray(fd.tc))fd.tc=[];if(!Array.isArray(fd.hn))fd.hn=[];if(!Array.isArray(fd.pl))fd.pl=[];$('fd-n').textContent=p.name;$('fd-s').textContent=(p.rel||'')+(p.job?' · '+p.job:'')+((p.age||p.yob)?' · '+(p.age||p.yob)+'t':'');$('fd-b').innerHTML=`<span class="bge bge-${p.status||'chua'}">${SM[p.status||'chua']}</span>`;$('fdn').textContent=p.name;$('fdj').textContent=p.job||'—';$('fdp').textContent=p.phone||'—';['dob','mxh','b1','b2','tgd','ttgd','hm'].forEach(k=>{const e=$('fd-'+k);if(e)e.value=fd[k]||'';});$('fd-vp-note').value=fd.vpNote||'';$('fd-fid').value=fd.fid||'';$('fd-pw').value=fd.pw||'';$('fd-ngn').value=fd.ngn||'';$('fd-bk').onclick=()=>go('s-list',1);
+function openFD(id,fromScreen,fromIdx){
+  _prevScreen=fromScreen||'s-list';_prevNavIdx=fromIdx!==undefined?fromIdx:1;curP=id;const p=findPerson(id);if(!p){toast('⚠️ Không tìm thấy','warn');return;}if(!db.formd[id])db.formd[id]=mkFD();const fd=db.formd[id];if(Array.isArray(fd.sp)){const o={};fd.sp.forEach(v=>o[v]='');fd.sp=o;}if(!fd.sp||typeof fd.sp!=='object')fd.sp={};if(!Array.isArray(fd.tc))fd.tc=[];if(!Array.isArray(fd.hn))fd.hn=[];if(!Array.isArray(fd.pl))fd.pl=[];$('fd-n').textContent=p.name;$('fd-s').textContent=(p.rel||'')+(p.job?' · '+p.job:'')+((p.age||p.yob)?' · '+(p.age||p.yob)+'t':'');$('fd-b').innerHTML=`<span class="bge bge-${p.status||'chua'}">${SM[p.status||'chua']}</span>`;$('fdn').textContent=p.name;$('fdj').textContent=p.job||'—';$('fdp').textContent=p.phone||'—';['dob','mxh','b1','b2','tgd','ttgd','hm'].forEach(k=>{const e=$('fd-'+k);if(e)e.value=fd[k]||'';});$('fd-vp-note').value=fd.vpNote||'';$('fd-fid').value=fd.fid||'';$('fd-pw').value=fd.pw||'';$('fd-ngn').value=fd.ngn||'';  $('fd-bk').onclick=()=>go(_prevScreen,_prevNavIdx);
   const depth=curDepth();const showSub=depth<MAX_DEPTH-1;['btn-sublist','btn-sublist2'].forEach(bid=>{const b=$(bid);if(b)b.style.display=showSub?'':'none';});
   const subCount=(db.subLists[id]||[]).length;$('fd-sublist-preview').innerHTML=subCount?`<div style="display:flex;flex-wrap:wrap;gap:7px">${(db.subLists[id]||[]).slice(0,5).map(x=>`<span style="background:var(--pl);color:var(--pp);padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700">👤 ${x.name}</span>`).join('')}${subCount>5?`<span style="font-size:12px;color:var(--t3);padding:3px">+${subCount-5} nữa</span>`:''}</div>`:'<div style="padding:5px 0;font-size:12px;color:var(--t3);font-weight:500">'+(showSub?'Chưa có DS con':'Đã đạt giới hạn 4 tầng')+'</div>';
   buildSPList();buildRG('rg-vp',VP_OPTS,'vp');buildCBs('cb-tc',TC_OPTS,'tc');buildCBs('cb-hn',HN_OPTS,'hn');buildCBs('cb-pl',PL_OPTS,'pl');diImgBuf=[];rDiPrev();rDiary();go('s-fd',-1);}
@@ -1102,7 +1166,11 @@ function sfd(){if(!curP||!db.formd[curP])return;const fd=db.formd[curP];['dob','
 function rDiary(){const fd=db.formd[curP];if(!fd)return;$('diary-body').innerHTML=(fd.diary||[]).length?fd.diary.slice().reverse().map((d,i)=>`<div class="diary-entry" style="padding:10px 0;border-bottom:0.5px solid var(--bd)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-size:12px;color:var(--t3);font-weight:600">📅 ${d.date}</div><button onclick="delDiary(${(fd.diary.length-1-i)})" style="background:none;border:none;cursor:pointer;color:var(--rd);font-size:13px;padding:4px 8px;border-radius:var(--rx);font-weight:700;min-height:32px">🗑</button></div><div style="font-size:var(--fs-sm);margin-top:2px;line-height:1.6">${d.text||''}</div>${(d.imgs||[]).length?`<div class="di-imgs">${d.imgs.map(src=>`<img class="di-img-th" src="${src}" onclick="viewImg('${src}')">`).join('')}</div>`:''}</div>`).join(''):'<div style="padding:8px 0;font-size:12px;color:var(--t3);font-weight:500">Chưa có nhật ký</div>';}
 function delDiary(idx){if(!db.formd[curP])return;if(!confirm('Xoá nhật ký này?'))return;db.formd[curP].diary.splice(idx,1);if(save())rDiary();}
 function pickDiImg(){$('di-img-inp').value='';$('di-img-inp').click();}
-function onDiImgs(e){Array.from(e.target.files).forEach(f=>{if(diImgBuf.length>=4){toast('Tối đa 4 ảnh','warn');return;}const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const M=800,sc=Math.min(1,M/Math.max(img.width,img.height));const cv=document.createElement('canvas');cv.width=img.width*sc;cv.height=img.height*sc;cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);diImgBuf.push(cv.toDataURL('image/jpeg',0.75));rDiPrev();};img.src=ev.target.result;};r.readAsDataURL(f);});}
+function onDiImgs(e){Array.from(e.target.files).forEach(f=>{if(diImgBuf.length>=4){toast('Tối đa 4 ảnh','warn');return;}const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const M=800,sc=Math.min(1,M/Math.max(img.width,img.height));const cv=document.createElement('canvas');cv.width=img.width*sc;cv.height=img.height*sc;cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+  // #1 FIX — nén mạnh hơn (0.6) rồi kiểm tra size trước khi thêm vào buffer
+  const dataUrl=cv.toDataURL('image/jpeg',0.6);
+  if(!checkImgSize(dataUrl,f.name))return;
+  diImgBuf.push(dataUrl);rDiPrev();};img.src=ev.target.result;};r.readAsDataURL(f);});}
 function rDiPrev(){const el=$('di-img-prev');if(!el)return;el.innerHTML=diImgBuf.map((src,i)=>`<div style="position:relative;display:inline-block"><img src="${src}" class="di-img-th"><div onclick="diImgBuf.splice(${i},1);rDiPrev()" style="position:absolute;top:-5px;right:-5px;width:20px;height:20px;background:var(--rd);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;font-weight:800">✕</div></div>`).join('');}
 function addDiary(){const txt=$('di-in').value.trim();if(!txt&&!diImgBuf.length){toast('⚠️ Hãy nhập nội dung hoặc đính kèm ảnh','warn');return;}if(!db.formd[curP])db.formd[curP]=mkFD();db.formd[curP].diary=db.formd[curP].diary||[];db.formd[curP].diary.push({date:td(),text:txt,imgs:[...diImgBuf]});$('di-in').value='';diImgBuf=[];rDiPrev();if(save()){rDiary();toast('✅ Đã lưu nhật ký','ok');}}
 function viewImg(src){$('m-img-src').src=src;om('m-img');}
@@ -1111,12 +1179,13 @@ function viewImg(src){$('m-img-src').src=src;om('m-img');}
 function swTT(tab){$('td-today').style.display=tab==='today'?'block':'none';$('td-hist').style.display=tab==='hist'?'block':'none';$('td-t1').classList.toggle('on',tab==='today');$('td-t2').classList.toggle('on',tab==='hist');if(tab==='hist'){hfType='all';hfKq='all';hfQ='';hfDate='';document.querySelectorAll('#hf-type-row .hf-chip').forEach((c,i)=>c.classList.toggle('on',i===0));const di=$('hf-date-inp');if(di)di.value='';rHistory();}}
 function rToday(){const D=['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];const now=new Date();$('td-date-big').textContent=D[now.getDay()]+', ngày '+now.getDate()+'/'+(now.getMonth()+1)+'/'+now.getFullYear();const ll=db.today.ll.length,hn=db.today.hen.length,bn=db.today.ban.length;$('lbl10').textContent=ll+'/10'+(ll>=10?' ✅':'');$('lbl3').textContent=hn+'/3'+(hn>=3?' ✅':'');$('lbl1').textContent=bn+'/1'+(bn>=1?' ✅':'');$('prg-ll').style.width=Math.min(100,ll/10*100)+'%';$('prg-hen').style.width=Math.min(100,hn/3*100)+'%';$('prg-ban').style.width=Math.min(100,bn*100)+'%';if($('btn-all'))$('btn-all').style.display=ll>=10?'none':'flex';if($('btn-ahen'))$('btn-ahen').style.display=hn>=3?'none':'flex';rTZ('ll','bd-ll');rTZ('hen','bd-hen');rTZ('ban','bd-ban');}
 function rTZ(type,bid){const items=db.today[type]||[];$(bid).innerHTML=items.length?items.map((it,i)=>`<div class="ti"><div class="tin">${i+1}</div><div class="tib"><div class="tit" onclick="quickOpenPerson('${it.name}')">${it.name}</div><div class="tim">${it.muc||''}${it.henTime?' ⏰ '+it.henTime:''}${it.location?' 📍 '+it.location:''}</div>${it.note?`<div style="font-size:12px;color:var(--t3);margin-top:2px">${it.note}</div>`:''}<div class="ia"><button class="abt" onclick="oat('${type}',${i})">✏️ Sửa</button><button class="abt" onclick="dTA('${type}',${i})">🗑 Xoá</button></div></div><span class="kq ${KCL[it.kq||'wait']||'kw'}">${KM[it.kq||'wait']||'—'}</span></div>`).join(''):'';}
-function quickOpenPerson(name){const p=db.people.find(x=>x.name===name);if(p){navStack=[{type:'root',label:'DS chính'}];openFD(p.id);}else toast('⚠️ Chưa có trong DS chính','warn',2500);}
+function quickOpenPerson(name){const p=db.people.find(x=>x.name===name);if(p){navStack=[{type:'root',label:'DS chính'}];openFD(p.id,'s-today',2);}else toast('⚠️ Chưa có trong DS chính','warn',2500);}
 function dTA(t,i){db.today[t].splice(i,1);if(save())rToday();}
 
 /* SEARCH IN MODAL */
 function onMtSearch(){const q=$('mt-search').value.trim().toLowerCase();const sug=$('mt-suggest');if(!q){sug.style.display='none';return;}const matches=allPeople().filter(p=>p.name.toLowerCase().includes(q)).slice(0,6);if(!matches.length){sug.style.display='none';return;}sug.style.display='block';sug.innerHTML=matches.map(p=>`<div class="suggest-item" onclick="selectMtPerson('${p.name}')"><div class="av" style="width:28px;height:28px;font-size:11px">${ini(p.name)}</div><div><div style="font-size:var(--fs-sm);font-weight:700">${p.name}</div><div style="font-size:11px;color:var(--t3)">${p.rel||''}${p.job?' · '+p.job:''}</div></div></div>`).join('');}
 function selectMtPerson(name){$('mt-name').value=name;$('mt-search').value=name;$('mt-suggest').style.display='none';$('mt-name-hint').textContent='✅ Đã chọn từ danh sách.';}
+document.addEventListener('click',e=>{const sug=$('mt-suggest');if(sug&&!e.target.closest('#mt-search')&&!e.target.closest('#mt-suggest'))sug.style.display='none';});
 
 /* TODAY MODAL */
 function oat(type,ei=-1){aType=type;eIdx=ei;$('mt-ttl').textContent=ei>=0?'Chỉnh sửa':{ll:'Thêm liên lạc mới',hen:'Thêm cuộc hẹn mới',ban:'Thêm bạn mới gặp hôm nay'}[type];$('mt-search').value='';$('mt-name').value='';$('mt-suggest').style.display='none';$('mt-note').value='';const isBan=type==='ban';$('mf-person-block').style.display=isBan?'none':'block';$('mf-ban').style.display=isBan?'block':'none';$('mf-note-block').style.display='block';$('mf-ll').style.display=type==='ll'?'block':'none';$('mf-hen').style.display=type==='hen'?'block':'none';const now=new Date(),dd=toISO(now),hh=String(now.getHours()).padStart(2,'0')+':00';if(ei>=0){const it=db.today[type][ei];if(!isBan){$('mt-search').value=it.name||'';$('mt-name').value=it.name||'';}$('mt-note').value=it.note||'';if(type==='ll'){$('mt-mll').value=it.muc||'';$('mt-kll').value=it.kq||'wait';$('mt-hd').value=it.henDate||dd;$('mt-ht').value=it.henTime||hh;}if(type==='hen'){$('mt-mhen').value=it.muc||'';$('mt-khen').value=it.kq||'wait';$('mt-hd2').value=it.henDate||dd;$('mt-ht2').value=it.henTime||hh;$('mt-loc').value=it.location||'';}if(type==='ban'){$('mt-ban-name').value=it.name||'';$('mt-mxh').value=it.mxh||'';$('mt-link').value=it.link||'';$('mt-bi').value=it.info||'';}}else{$('mt-hd').value=dd;$('mt-ht').value=hh;$('mt-hd2').value=dd;$('mt-ht2').value=hh;$('mt-loc').value='';if(isBan){$('mt-ban-name').value='';$('mt-mxh').value='';$('mt-link').value='';$('mt-bi').value='';}}om('m-td');}
@@ -1133,7 +1202,7 @@ function chgPeriod(d){if(calMode==='week')calOff+=d;else monthOff+=d;rCal();}
 function calNow(){calOff=0;monthOff=0;rCal();}
 function rCal(){if(calMode==='week')rCalWeek();else rCalMonth();}
 function getWkDays(off=0){const now=new Date();now.setDate(now.getDate()+off*7);const d=now.getDay(),mon=new Date(now);mon.setDate(now.getDate()-(d===0?6:d-1));return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x;});}
-function rCalWeek(){const days=getWkDays(calOff),ti=todISO(),fe=getFE();const DL=['T.2','T.3','T.4','T.5','T.6','T.7','CN'];const s0=days[0],e0=days[6];$('cal-lbl').textContent=`📅 Tuần: ${s0.getDate()}/${s0.getMonth()+1} – ${e0.getDate()}/${e0.getMonth()+1}/${e0.getFullYear()}`;$('chead').innerHTML='<tr><th style="width:32px;font-size:10px"></th>'+days.map((d,i)=>{const iso=toISO(d),isT=iso===ti,wk=i>=5;return`<th class="${wk?'wk':''}${isT?' td2':''}">${DL[i]}<br><span style="font-size:12px;font-weight:800">${d.getDate()}/${d.getMonth()+1}</span></th>`;}).join('')+'</tr>';$('cbody').innerHTML=SLOTS.map(slot=>`<tr><td class="sl">${slot.l}</td>${days.map((d,i)=>{const iso=toISO(d),isT=iso===ti,wk=i>=5,dw=DOW(d);let evs=[];fe.filter(f=>f.dow===dw&&inSlot(slot,f.t)).forEach(f=>{const gk=f.id+'_'+iso,gs=(db.fixedGuests&&db.fixedGuests[gk])||[];evs.push({_t:'fx',fe:f,iso,gk,gs});});if(isT)(db.today.hen||[]).filter(h=>h.henDate===iso&&inSlot(slot,h.henTime||'08')).forEach((h,hi)=>evs.push({_t:'lk',name:h.name,time:h.henTime||'',loc:h.location||'',uid:'lk-'+hi}));((db.calEvents||{})[iso]||[]).filter(e=>inSlot(slot,e.time||'08')).forEach((e,ei)=>evs.push({_t:'mn',ev:e,iso,idx:ei}));const eH=evs.map(ev=>{if(ev._t==='fx'){const hg=ev.gs.length>0;return`<div class="ev fx${hg?' gh':''}" onclick="vFxById(event,'${ev.fe.id}','${ev.iso}')"><span class="evt">${ev.fe.t}</span><b>${ev.fe.ab}</b>${hg?` +${ev.gs.length}`:''}</div>`;}if(ev._t==='lk')return`<div class="ev lk"><span class="evt">${ev.time}</span><b>${ev.name}</b></div>`;return`<div class="ev ${ev.ev.type||'mn'}" onclick="event.stopPropagation();vCEv('${ev.iso}',${ev.idx})"><span class="evt">${ev.ev.time||''}</span><b>${ev.ev.name}</b></div>`;}).join('');const sh={'Sáng':'08','Trưa':'12','Chiều':'14','Tối':'19'}[slot.l]||'08';return`<td class="ce${wk?' wknd':''}${isT?' tc':''}" onclick="cellCk(event,'${iso}','${slot.l}','${sh}')">${eH}<div class="cap-add">＋</div></td>`;}).join('')}</tr>`).join('');}
+function rCalWeek(){const wrap=document.querySelector('.cal-wrap');const prevScroll=wrap?wrap.scrollLeft:0;const days=getWkDays(calOff),ti=todISO(),fe=getFE();const DL=['T.2','T.3','T.4','T.5','T.6','T.7','CN'];const s0=days[0],e0=days[6];$('cal-lbl').textContent=`📅 Tuần: ${s0.getDate()}/${s0.getMonth()+1} – ${e0.getDate()}/${e0.getMonth()+1}/${e0.getFullYear()}`;$('chead').innerHTML='<tr><th style="width:32px;font-size:10px"></th>'+days.map((d,i)=>{const iso=toISO(d),isT=iso===ti,wk=i>=5;return`<th class="${wk?'wk':''}${isT?' td2':''}">${DL[i]}<br><span style="font-size:12px;font-weight:800">${d.getDate()}/${d.getMonth()+1}</span></th>`;}).join('')+'</tr>';$('cbody').innerHTML=SLOTS.map(slot=>`<tr><td class="sl">${slot.l}</td>${days.map((d,i)=>{const iso=toISO(d),isT=iso===ti,wk=i>=5,dw=DOW(d);let evs=[];fe.filter(f=>f.dow===dw&&inSlot(slot,f.t)).forEach(f=>{const gk=f.id+'_'+iso,gs=(db.fixedGuests&&db.fixedGuests[gk])||[];evs.push({_t:'fx',fe:f,iso,gk,gs});});if(isT)(db.today.hen||[]).filter(h=>h.henDate===iso&&inSlot(slot,h.henTime||'08')).forEach((h,hi)=>evs.push({_t:'lk',name:h.name,time:h.henTime||'',loc:h.location||'',uid:'lk-'+hi}));((db.calEvents||{})[iso]||[]).filter(e=>inSlot(slot,e.time||'08')).forEach((e,ei)=>evs.push({_t:'mn',ev:e,iso,idx:ei}));const eH=evs.map(ev=>{if(ev._t==='fx'){const hg=ev.gs.length>0;return`<div class="ev fx${hg?' gh':''}" onclick="vFxById(event,'${ev.fe.id}','${ev.iso}')"><span class="evt">${ev.fe.t}</span><b>${ev.fe.ab}</b>${hg?` +${ev.gs.length}`:''}</div>`;}if(ev._t==='lk')return`<div class="ev lk"><span class="evt">${ev.time}</span><b>${ev.name}</b></div>`;return`<div class="ev ${ev.ev.type||'mn'}" onclick="event.stopPropagation();vCEv('${ev.iso}',${ev.idx})"><span class="evt">${ev.ev.time||''}</span><b>${ev.ev.name}</b></div>`;}).join('');const sh={'Sáng':'08','Trưa':'12','Chiều':'14','Tối':'19'}[slot.l]||'08';return`<td class="ce${wk?' wknd':''}${isT?' tc':''}" onclick="cellCk(event,'${iso}','${slot.l}','${sh}')">${eH}<div class="cap-add">＋</div></td>`;}).join('')}</tr>`).join('');}
 function rCalMonth(){const now=new Date();const yr=now.getFullYear(),mo=now.getMonth()+monthOff;const date=new Date(yr,mo,1);const mName=['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];$('cal-lbl').textContent=`📅 ${mName[date.getMonth()]} / ${date.getFullYear()}`;const fe=getFE(),ti=todISO();const DL=['T.2','T.3','T.4','T.5','T.6','T.7','CN'];$('mcal-head').innerHTML=DL.map((d,i)=>`<div class="mcal-hd${i>=5?' wk':''}">${d}</div>`).join('');const firstDay=date.getDay()===0?7:date.getDay();const daysInMonth=new Date(date.getFullYear(),date.getMonth()+1,0).getDate();let cells=[];const prevLast=new Date(date.getFullYear(),date.getMonth(),0);for(let i=firstDay-1;i>0;i--)cells.push({d:new Date(date.getFullYear(),date.getMonth()-1,prevLast.getDate()-i+1),cur:false});for(let i=1;i<=daysInMonth;i++)cells.push({d:new Date(date.getFullYear(),date.getMonth(),i),cur:true});const rem=(7-cells.length%7)%7;for(let i=1;i<=rem;i++)cells.push({d:new Date(date.getFullYear(),date.getMonth()+1,i),cur:false});$('mcal-body').innerHTML=cells.map(({d,cur})=>{const iso=toISO(d),isT=iso===ti,dw=DOW(d),wk=dw>=6;let evs=[];fe.filter(f=>f.dow===dw).forEach(f=>evs.push({type:'fx',name:f.ab}));((db.calEvents||{})[iso]||[]).forEach(e=>evs.push({type:e.type||'mn',name:e.name}));if(iso===ti)(db.today.hen||[]).filter(h=>h.henDate===iso).forEach(h=>evs.push({type:'lk',name:h.name}));const evHtml=evs.slice(0,3).map(e=>`<div class="mcal-ev ${e.type}">${e.name}</div>`).join('')+(evs.length>3?`<div style="font-size:9px;color:var(--t3);font-weight:600">+${evs.length-3}</div>`:'');return`<div class="mcal-day${isT?' today':''}${!cur?' other':''}${wk?' wknd':''}" onclick="mcalDayClick('${iso}')"><div class="mcal-dn">${d.getDate()}</div>${evHtml}</div>`;}).join('');}
 function mcalDayClick(iso){const evs=(db.calEvents||{})[iso]||[];if(!evs.length)openNewCalEvDate(iso);else vCEvModal(iso);}
 function openNewCalEv(){const dd=toISO(new Date());$('mc-ttl').textContent='Thêm lịch sự kiện';$('mc-date').value=dd;$('mc-time').value='08:00';$('mc-tend').value='';$('mc-name').value='';$('mc-loc').value='';$('mc-note').value='';$('mc-type').value='mn';$('mc-repeat').checked=false;$('mc-repeat-info').style.display='none';om('m-cal');}
@@ -1143,7 +1212,7 @@ function addToDay(iso){cm('m-view');openNewCalEvDate(iso);}
 function qDelCEv(iso,idx){(db.calEvents[iso]||[]).splice(idx,1);if(save()){cm('m-view');rCal();toast('🗑 Đã xoá');}}
 function cellCk(e,iso,sl,sh){if(e.target.classList.contains('ev')||e.target.closest('.ev'))return;openNewCalEvDate(iso);}
 function saveCalEv(){const n=$('mc-name').value.trim();if(!n){toast('⚠️ Hãy nhập tên sự kiện','warn');return;}const iso=$('mc-date').value;if(!iso){toast('⚠️ Hãy chọn ngày','warn');return;}const isRepeat=$('mc-repeat').checked;if(isRepeat){if(!db.fixedEvents)db.fixedEvents=[...DEF_FE];const d2=new Date(iso);const dow=DOW(d2);db.fixedEvents.push({id:'fe'+Date.now(),ab:n.slice(0,6).toUpperCase(),name:n,dow,t:$('mc-time').value,te:$('mc-tend').value,loc:$('mc-loc').value});if(save()){cm('m-cal');rCal();toast('✅ Đã thêm lịch cố định','ok');return;}}if(!db.calEvents)db.calEvents={};if(!db.calEvents[iso])db.calEvents[iso]=[];db.calEvents[iso].push({name:n,time:$('mc-time').value,timeEnd:$('mc-tend').value,location:$('mc-loc').value,note:$('mc-note').value,type:$('mc-type').value});if(save()){cm('m-cal');rCal();toast('✅ Đã thêm vào lịch','ok');}}
-function addCEvDB(iso,time,te,name,type,note,loc){if(!iso)return;if(!db.calEvents)db.calEvents={};if(!db.calEvents[iso])db.calEvents[iso]=[];if(!db.calEvents[iso].some(e=>e.name===name&&e.type===type&&e.time===time))db.calEvents[iso].push({name,time,timeEnd:te,location:loc,note,type});}
+function addCEvDB(iso,time,te,name,type,note,loc){if(!iso)return;if(!db.calEvents)db.calEvents={};if(!db.calEvents[iso])db.calEvents[iso]=[];db.calEvents[iso].push({id:'ev'+Date.now()+'_'+Math.random().toString(36).slice(2,6),name,time,timeEnd:te,location:loc,note,type});}
 function vFxById(e,feId,iso){e.stopPropagation();vFid=feId;vFdate=iso;const fe2=getFE().find(f=>f.id===feId);if(!fe2)return;const gk=feId+'_'+iso,gs=(db.fixedGuests&&db.fixedGuests[gk])||[];$('mv-ttl').textContent=fe2.name;$('mv-body').innerHTML=`<div>⏰ <b>${fe2.t}${fe2.te?' – '+fe2.te:''}</b></div><div>📍 <b>${fe2.loc}</b></div>`;$('mv-guests').innerHTML=gs.length?'<div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;margin:9px 0 6px">👤 Khách tham dự</div>'+gs.map((g,i)=>`<div style="padding:7px 11px;background:var(--gl);border-radius:var(--rx);margin-bottom:5px;font-size:13px;font-weight:700;color:var(--gn);display:flex;justify-content:space-between;align-items:center">👤 ${g.name}${g.note?' — '+g.note:''}<button onclick="delG('${gk}',${i})" style="background:none;border:none;cursor:pointer;color:var(--rd);font-size:15px;padding:5px;min-width:34px">✕</button></div>`).join(''):'';$('mv-acts').innerHTML=`<button class="bp" style="flex:1;padding:12px;font-size:13px" onclick="openGuest('${feId}','${iso}')">➕ Thêm khách</button><button class="bo" style="padding:12px" onclick="cm('m-view')">Đóng</button>`;om('m-view');}
 function openGuest(feId,iso){cm('m-view');const fe2=getFE().find(f=>f.id===feId);$('mg-ttl').textContent='Thêm khách — '+fe2.ab;$('mg-info').textContent=fe2.name+' · '+fe2.t+(fe2.te?' – '+fe2.te:'')+' · '+fe2.loc;const sel=$('mg-sel');sel.innerHTML='<option value="">— Chọn người —</option>'+db.people.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');$('mg-name').value='';$('mg-note').value='';vFid=feId;vFdate=iso;om('m-guest');}
 function saveGuest(){const sel=$('mg-sel').value,name=(sel||$('mg-name').value).trim();if(!name){toast('⚠️ Hãy nhập tên','warn');return;}const gk=vFid+'_'+vFdate;if(!db.fixedGuests)db.fixedGuests={};if(!db.fixedGuests[gk])db.fixedGuests[gk]=[];db.fixedGuests[gk].push({name,note:$('mg-note').value,addedAt:td()});if(save()){cm('m-guest');rCal();toast('✅ Đã thêm khách','ok');setTimeout(()=>vFxById({stopPropagation:()=>{}},vFid,vFdate),200);}}
@@ -1178,7 +1247,10 @@ function addCmt(){const a=$('cmt-author').value.trim(),t=$('cmt-text').value.tri
 /* EXPORT/IMPORT */
 function expJSON(){try{const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='excellent_v326_saoluu_'+td().replace(/\//g,'-')+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1000);toast('✅ Đã tải file sao lưu','ok',4000);}catch(e){toast('❌ Thất bại','err',3000);}}
 function impJSON(){$('imp-file').value='';$('imp-file').click();}
-function handleImp(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const imp=JSON.parse(ev.target.result);if(!imp||!Array.isArray(imp.people))throw new Error('File không đúng định dạng');db={...imp,todayDate:db.todayDate,today:db.today};if(!db.subLists)db.subLists={};if(save()){toast('✅ Khôi phục thành công: '+imp.people.length+' người','ok',4000);rHome();rCfg();}}catch(err){toast('❌ File không hợp lệ: '+err.message,'err',4000);}};r.onerror=()=>toast('❌ Không đọc được file','err',3000);r.readAsText(f,'UTF-8');}
+function handleImp(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const imp=JSON.parse(ev.target.result);if(!imp||!Array.isArray(imp.people))throw new Error('File không đúng định dạng');
+const _td=db.todayDate,_ty={ll:[...(db.today?.ll||[])],hen:[...(db.today?.hen||[])],ban:[...(db.today?.ban||[])]};
+db={...imp};db.todayDate=_td;db.today=_ty;
+if(!db.subLists)db.subLists={};if(save()){toast('✅ Khôi phục thành công: '+imp.people.length+' người','ok',4000);rHome();rCfg();}}catch(err){toast('❌ File không hợp lệ: '+err.message,'err',4000);}};r.onerror=()=>toast('❌ Không đọc được file','err',3000);r.readAsText(f,'UTF-8');}
 
 /* MODALS */
 function om(id){$(id).classList.add('on');document.body.style.overflow='hidden';}
@@ -1288,7 +1360,7 @@ gdLoadState();load();buildDesktopNav();gdHandleCallback();
 if($('mgd-success'))$('mgd-success').style.display='none';
 if($('mgd-guide'))$('mgd-guide').style.display='block';
 if(gdIsConnected()&&$('mgd-success')&&$('mgd-guide')){$('mgd-success').style.display='block';$('mgd-guide').style.display='none';const lbl=$('mgd-email-lbl');if(lbl)lbl.textContent='Đã kết nối: '+(gdUserEmail||'tài khoản của bạn');}
-if(localStorage.getItem('exc_started_v326')){$('ob').style.display='none';$('app').style.display='block';rHome();rGdUI();}
+if(localStorage.getItem('exc_started_v326')||localStorage.getItem(_K)){$('ob').style.display='none';$('app').style.display='block';rHome();rGdUI();}
 function startApp(mode){
   $('ob').style.display='none';$('app').style.display='block';
   if(mode==='guest'){try{const g=buildSampleData();Object.assign(db,g,{todayDate:td()});save();toast('✅ Đã tải 30 người dữ liệu mẫu!','ok',4000);}catch(err){console.error(err);toast('⚠️ Lỗi: '+err.message,'err',4000);}}
@@ -1297,8 +1369,12 @@ function startApp(mode){
   localStorage.setItem('exc_started_v326','1');
   rHome();
 }
-setInterval(()=>save(),60000);
-setInterval(()=>{if(gdIsConnected()&&!gdSyncing)gdSyncNow();},300000);
+// #2 FIX — xoá timer cũ trước khi tạo mới, chống chồng interval
+let _autoSaveInterval=null,_autoDriveInterval=null;
+if(_autoSaveInterval)clearInterval(_autoSaveInterval);
+if(_autoDriveInterval)clearInterval(_autoDriveInterval);
+_autoSaveInterval=setInterval(()=>save(),60000);
+_autoDriveInterval=setInterval(()=>{if(gdIsConnected()&&!gdSyncing&&!_isSyncQueued)scheduleDriveSync();},300000);
 window.addEventListener('resize',()=>{if($('s-home').classList.contains('on'))setTimeout(drawChart,100);});
 </script>
 </body>
