@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>📒 Excellent v3.2.6</title>
+<title>📒 Excellent v3.2.8</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -339,7 +339,7 @@ textarea.fi{resize:none;min-height:88px;line-height:1.5}
 <body>
 
 <div id="sidebar">
-  <div class="logo"><h2>📒 Excellent</h2><div class="ver">v3.2.6 · © 2026 Emerald</div></div>
+  <div class="logo"><h2>📒 Excellent</h2><div class="ver">v3.2.8 · © 2026 Emerald</div></div>
   <nav id="desk-nav"></nav>
   <div class="sync-status" id="desk-sync">💾 Chưa lưu</div>
 </div>
@@ -350,7 +350,7 @@ textarea.fi{resize:none;min-height:88px;line-height:1.5}
   <div class="ob-step on" id="ob-s0">
     <div style="font-size:48px;margin:8px 0 10px">📒</div>
     <div style="font-size:24px;font-weight:900;color:#fff;text-align:center;line-height:1.25;margin-bottom:4px">Sổ Tay Hành Động<br>Excellent</div>
-    <div style="font-size:12px;color:rgba(255,255,255,.45);font-weight:500;text-align:center;margin-bottom:22px">v3.2.6 · © Emerald · An Minh Tiến</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.45);font-weight:500;text-align:center;margin-bottom:22px">v3.2.8 · © Emerald · An Minh Tiến</div>
     <div class="obc" id="ob-guest" onclick="obGoStep('demo')">
       <div style="font-size:28px">👤</div>
       <div><div style="font-size:16px;font-weight:800;color:#fff">Dùng thử (dữ liệu mẫu)</div><div id="ob-guest-sub" style="font-size:13px;color:rgba(255,255,255,.55);font-weight:500;margin-top:2px">30 người · 4 tầng DS con</div></div>
@@ -800,7 +800,7 @@ textarea.fi{resize:none;min-height:88px;line-height:1.5}
   <div class="sec" style="padding-top:0">
     <div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div style="font-size:38px">📒</div><div><div style="font-size:16px;font-weight:800">Sổ Tay Hành Động Excellent</div><div style="font-size:12px;color:var(--t3);font-weight:500;margin-top:2px">Xây dựng thói quen hành động mỗi ngày</div></div></div>
-      <div class="about-row"><span class="about-label">Phiên bản</span><span class="about-val">3.2.7</span></div>
+      <div class="about-row"><span class="about-label">Phiên bản</span><span class="about-val">3.2.8</span></div>
       <div class="about-row"><span class="about-label">Cập nhật</span><span class="about-val">10 / 05 / 2026</span></div>
       <div class="about-row"><span class="about-label">Bản quyền</span><span class="about-val">© 2026 An Minh Tiến</span></div>
       <div class="about-row"><span class="about-label">Hỗ trợ</span><span class="about-val"><a class="about-link" onclick="openZaloSupport()">0915532139</a></span></div>
@@ -973,7 +973,7 @@ textarea.fi{resize:none;min-height:88px;line-height:1.5}
 <input type="file" id="imp-file" accept=".json" style="display:none" onchange="handleImp(event)">
 
 <script>
-const _V='3.2.7',_K='exc_v326',_GD='exc_gd_v326';
+const _V='3.2.8',_K='exc_v326',_GD='exc_gd_v326';
 const $=id=>document.getElementById(id);
 /* XSS FIX — escape tất cả user input trước khi đưa vào innerHTML */
 const esc=s=>{if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');};
@@ -1526,6 +1526,10 @@ function addCmt(){const a=$('cmt-author').value.trim(),t=$('cmt-text').value.tri
 function expJSON(){try{const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='excellent_v326_saoluu_'+td().replace(/\//g,'-')+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1000);toast('✅ Đã tải file sao lưu','ok',4000);}catch(e){toast('❌ Thất bại','err',3000);}}
 function impJSON(){$('imp-file').value='';$('imp-file').click();}
 function handleImp(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const imp=JSON.parse(ev.target.result);if(!imp||!Array.isArray(imp.people))throw new Error('File không đúng định dạng');
+/* v3.2.8 fix: archive backup's today into history if not already present */
+if(imp.todayDate&&imp.today&&imp.history&&!imp.history[imp.todayDate]){
+  imp.history[imp.todayDate]={ll:[...(imp.today.ll||[])],hen:[...(imp.today.hen||[])],ban:[...(imp.today.ban||[])]};
+}
 const _td=db.todayDate,_ty={ll:[...(db.today?.ll||[])],hen:[...(db.today?.hen||[])],ban:[...(db.today?.ban||[])]};
 db={...imp};db.todayDate=_td;db.today=_ty;
 if(!db.subLists)db.subLists={};if(save()){toast('✅ Khôi phục thành công: '+imp.people.length+' người','ok',4000);rHome();rCfg();}}catch(err){toast('❌ File không hợp lệ: '+err.message,'err',4000);}};r.onerror=()=>toast('❌ Không đọc được file','err',3000);r.readAsText(f,'UTF-8');}
