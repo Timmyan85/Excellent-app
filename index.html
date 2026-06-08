@@ -1431,8 +1431,82 @@ function oat(type,ei=-1){aType=type;eIdx=ei;$('mt-ttl').textContent=ei>=0?'Chỉ
 function saveTI(){const isBan=aType==='ban';let name='';if(isBan){name=$('mt-ban-name').value.trim();if(!name){toast('⚠️ Hãy nhập tên bạn mới','warn');return;}}else{name=$('mt-name').value.trim();if(!name){toast('⚠️ Hãy nhập tên','warn');return;}}const exists=allPeople().some(p=>p.name===name);let it={name,note:$('mt-note').value};if(aType==='ll'){it.muc=$('mt-mll').value;it.kq=$('mt-kll').value;const d=$('mt-hd').value,t2=$('mt-ht').value;if(it.kq==='hen'&&d){it.henDate=d;it.henTime=t2;addCEvDB(d,t2,'',name,'lk',it.muc,'');}}if(aType==='hen'){it.muc=$('mt-mhen').value;it.kq=$('mt-khen').value;it.location=$('mt-loc').value;const d=$('mt-hd2').value,t2=$('mt-ht2').value;if(d){it.henDate=d;it.henTime=t2;addCEvDB(d,t2,'',name,'lk',it.muc,it.location);}}if(aType==='ban'){it.mxh=$('mt-mxh').value;it.link=$('mt-link').value;it.info=$('mt-bi').value;if($('mt-badd').value==='yes'&&!exists){db.people.push({id:'p'+Date.now(),name,rel:'Người mới quen',status:'chua',createdAt:td()});toast('✅ Đã thêm '+name+' vào DS','ok',3000);}}else if(!exists){db.people.push({id:'p'+Date.now(),name,rel:'Người quen',status:'chua',createdAt:td()});}if(eIdx>=0)db.today[aType][eIdx]=it;else db.today[aType].push(it);if(save()){cm('m-td');rToday();toast('✅ Đã lưu','ok');}if($('s-cal').classList.contains('on'))rCal();}
 
 /* HISTORY */
-function setHF(key,val,el){if(key==='type'){hfType=val;if(el){el.closest('.hf-row').querySelectorAll('.hf-chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');}}else if(key==='kq'){hfKq=val;if(el){el.closest('.hf-row').querySelectorAll('.hf-chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');}}else if(key==='q')hfQ=val.toLowerCase();else if(key==='date')hfDate=val;rHistory();}
-function rHistory(){const el=$('hist-body');if(!el)return;let keys=Object.keys(db.history||{}).sort().reverse().slice(0,60);if(hfDate){const vnd=hfDate.split('-').reverse().join('/');keys=keys.filter(d=>d===vnd);}if(hfQ)keys=keys.filter(date=>{const h=db.history[date];const all=[...(h.ll||[]),...(h.hen||[]),...(h.ban||[])].map(x=>(x.name||'').toLowerCase());return all.some(n=>n.includes(hfQ));});if(!keys.length){el.innerHTML='<div style="font-size:var(--fs-sm);color:var(--t3);font-weight:500;padding:18px 0;text-align:center">Không tìm thấy kết quả</div>';return;}el.innerHTML=keys.map(date=>{const h=db.history[date];let ll=h.ll||[],hn=h.hen||[],bn=h.ban||[];if(hfType==='ll'){hn=[];bn=[];}else if(hfType==='hen'){ll=[];bn=[];}else if(hfType==='ban'){ll=[];hn=[];}if(hfQ){ll=ll.filter(x=>(x.name||'').toLowerCase().includes(hfQ));hn=hn.filter(x=>(x.name||'').toLowerCase().includes(hfQ));bn=bn.filter(x=>(x.name||'').toLowerCase().includes(hfQ));}    const total=(h.ll||[]).length,hnTotal=(h.hen||[]).length,pct=Math.round(total/10*100);return`<div class="hist-day open"><div class="hist-dh" onclick="this.closest('.hist-day').classList.toggle('open')"><div>${esc(displayDate)} <span>${total>=10?'✅':'⚡'}</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--bm);font-weight:700">📞${total}/10 · 📅${hnTotal}/3 · ${pct}%</span><span class="tog-ico">▾</span></div></div><div class="hist-body-inner hist-collapsed">${ll.length?`<div class="hist-sec-lbl">📞 Liên lạc (${ll.length})</div>`+ll.map(x=>`<div class="hist-row"><span>👤 <b>${esc(x.name)}</b> <span style="color:var(--t3);font-size:12px">${esc(x.muc||'')}</span></span><span class="kq ${KCL[x.kq||'wait']||'kw'}">${esc(KM[x.kq||'wait'])}</span></div>`).join(''):''}${hn.length?`<div class="hist-sec-lbl">📅 Cuộc hẹn (${hn.length})</div>`+hn.map(x=>`<div class="hist-row"><span>📌 <b>${esc(x.name)}</b>${x.henTime?' '+esc(x.henTime):''}${x.location?' @ '+esc(x.location):''}</span><span class="kq ${KCL[x.kq||'wait']||'kw'}">${esc(KM[x.kq||'wait'])}</span></div>`).join(''):''}${bn.length?`<div class="hist-sec-lbl">👤 Bạn mới (${bn.length})</div>`+bn.map(x=>`<div class="hist-row"><span>🆕 <b>${esc(x.name)}</b>${x.info?' — '+esc(x.info):''}</span></div>`).join(''):''}${!ll.length&&!hn.length&&!bn.length?'<div style="font-size:12px;color:var(--t3);padding:7px 0">Không có dữ liệu phù hợp</div>':''}</div></div>`;}).join('');}
+function setHF(key, val, el) {
+  if (key === 'type') {
+    hfType = val;
+    if (el) {
+      el.closest('.hf-row').querySelectorAll('.hf-chip').forEach(c => c.classList.remove('on'));
+      el.classList.add('on');
+    }
+  } else if (key === 'kq') {
+    hfKq = val;
+    if (el) {
+      el.closest('.hf-row').querySelectorAll('.hf-chip').forEach(c => c.classList.remove('on'));
+      el.classList.add('on');
+    }
+  } else if (key === 'q') hfQ = val.toLowerCase();
+  else if (key === 'date') hfDate = val;
+  rHistory();
+}
+
+function rHistory() {
+  const el = $('hist-body');
+  if (!el) return;
+  let keys = Object.keys(db.history || {}).sort().reverse().slice(0, 60);
+
+  // FIX: So sánh trực tiếp ISO (YYYY-MM-DD) vì hfDate lấy từ input date
+  if (hfDate) {
+    keys = keys.filter(d => d === hfDate);
+  }
+
+  if (hfQ) {
+    keys = keys.filter(date => {
+      const h = db.history[date];
+      const all = [...(h.ll || []), ...(h.hen || []), ...(h.ban || [])].map(x => (x.name || '').toLowerCase());
+      return all.some(n => n.includes(hfQ));
+    });
+  }
+
+  if (!keys.length) {
+    el.innerHTML = '<div style="font-size:var(--fs-sm);color:var(--t3);font-weight:500;padding:18px 0;text-align:center">Không tìm thấy kết quả</div>';
+    return;
+  }
+
+  el.innerHTML = keys.map(date => {
+    const h = db.history[date];
+    let ll = h.ll || [], hn = h.hen || [], bn = h.ban || [];
+    
+    if (hfType === 'll') { hn = []; bn = []; }
+    else if (hfType === 'hen') { ll = []; bn = []; }
+    else if (hfType === 'ban') { ll = []; hn = []; }
+    
+    if (hfQ) {
+      ll = ll.filter(x => (x.name || '').toLowerCase().includes(hfQ));
+      hn = hn.filter(x => (x.name || '').toLowerCase().includes(hfQ));
+      bn = bn.filter(x => (x.name || '').toLowerCase().includes(hfQ));
+    }
+
+    const total = (h.ll || []).length, hnTotal = (h.hen || []).length, pct = Math.round(total / 10 * 100);
+    // FIX: Tạo biến displayDate từ chính biến date (YYYY-MM-DD)
+    const displayDate = date.split('-').reverse().join('/');
+
+    return `<div class="hist-day open">
+      <div class="hist-dh" onclick="this.closest('.hist-day').classList.toggle('open')">
+        <div>${esc(displayDate)} <span>${total >= 10 ? '✅' : '⚡'}</span></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--bm);font-weight:700">📞${total}/10 · 📅${hnTotal}/3 · ${pct}%</span>
+          <span class="tog-ico">▾</span>
+        </div>
+      </div>
+      <div class="hist-body-inner hist-collapsed">
+        ${ll.length ? `<div class="hist-sec-lbl">📞 Liên lạc (${ll.length})</div>` + ll.map(x => `<div class="hist-row"><span>👤 <b>${esc(x.name)}</b> <span style="color:var(--t3);font-size:12px">${esc(x.muc || '')}</span></span><span class="kq ${KCL[x.kq || 'wait'] || 'kw'}">${esc(KM[x.kq || 'wait'])}</span></div>`).join('') : ''}
+        ${hn.length ? `<div class="hist-sec-lbl">📅 Cuộc hẹn (${hn.length})</div>` + hn.map(x => `<div class="hist-row"><span>📌 <b>${esc(x.name)}</b>${x.henTime ? ' ' + esc(x.henTime) : ''}${x.location ? ' @ ' + esc(x.location) : ''}</span><span class="kq ${KCL[x.kq || 'wait'] || 'kw'}">${esc(KM[x.kq || 'wait'])}</span></div>`).join('') : ''}
+        ${bn.length ? `<div class="hist-sec-lbl">👤 Bạn mới (${bn.length})</div>` + bn.map(x => `<div class="hist-row"><span>🆕 <b>${esc(x.name)}</b>${x.info ? ' — ' + esc(x.info) : ''}</span></div>`).join('') : ''}
+        ${!ll.length && !hn.length && !bn.length ? '<div style="font-size:12px;color:var(--t3);padding:7px 0">Không có dữ liệu phù hợp</div>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
 
 /* CALENDAR */
 let monthOff=0;
